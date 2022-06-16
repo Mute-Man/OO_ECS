@@ -7,7 +7,43 @@ namespace OO
     {
         static void Main(string[] args)
         {
-            
+            // Read list of books from a json file (currently hardcoded)
+            Book[] libraryDatabase = JSON.Reader<Book>.readList();
+
+            // Build queries from user input (currently hardcoded)
+            IQuery<Book> query_1 = new AuthorQuery("ted").and(new PageCountQuery(10).or(new PageCountQuery(5))); // Books authored by ted that also have pagecount of either 10 or 5
+            IQuery<Book> query_2 = new PageCountQuery(0).not();                                                  // Books that have a non-zero pagecount
+
+            // Look for books that match either query
+            foreach (Book book in libraryDatabase)
+            {
+                if (query_1.query(book))
+                    Console.WriteLine("matches query 1 \n" + book + "\n\n");
+                if (query_2.query(book))
+                    Console.WriteLine("matches query 2 \n" + book + "\n\n");
+            }
+
+            // The example displays the following output:
+            //      matches query 1 
+            //      author: ted 
+            //      title: 
+            //      pageCount: 10
+            //      genre: 
+            //      
+            //      
+            //      matches query 2 
+            //      author: ted 
+            //      title: 
+            //      pageCount: 10
+            //
+            //
+            //      matches query 2 
+            //      author:  
+            //      title: 
+            //      pageCount: 5
+            //      genre:
+            //
+            // 
         }
         
         interface IQuery<T> where T : IQueriable
