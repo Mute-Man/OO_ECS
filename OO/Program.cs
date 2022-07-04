@@ -8,7 +8,7 @@ namespace OO
         static void Main(string[] args)
         {
             // Read list of books from a json file (currently hardcoded)
-            Book[] libraryDatabase = JSON.Reader<Book>.readList();
+            Book[] libraryDatabase = JSON.BookReader.readList("hardcoded");
 
             // Build queries from user input (currently hardcoded)
             IQuery<Book> query_1 = new AuthorQuery("ted").and(new PageCountQuery(10).or(new PageCountQuery(5))); // Books authored by ted that also have pagecount of either 10 or 5
@@ -45,137 +45,136 @@ namespace OO
             //
             // 
         }
+    }
+    public interface IQuery<T> where T : IQueriable
+    {
+        public bool query(T queriable);
+
+        public IQuery<T> and(IQuery<T> queryB);
+        public IQuery<T> or(IQuery<T> queryB);
+        public IQuery<T> not();
+    }
+    public abstract class AQuery<T> : IQuery<T> where T : IQueriable
+    {
+        public abstract bool query(T queriable);
+
+        public IQuery<T> and(IQuery<T> queryB)
+        {
+            return new AndQuery<T>(this, queryB);
+        }
+
+        public IQuery<T> or(IQuery<T> queryB)
+        {
+            return new OrQuery<T>(this, queryB);
+        }
+
+        public IQuery<T> not()
+        {
+            return new NotQuery<T>(this);
+        }
+    }
+
+    public abstract class AComboQuery<T> : AQuery<T> where T : IQueriable
+    {
+        protected IQuery<T> queryA;
+        protected IQuery<T> queryB;
         
-        interface IQuery<T> where T : IQueriable
+        public AComboQuery(IQuery<T> queryA, IQuery<T> queryB)
         {
-            public bool query(T queriable);
-
-            public IQuery<T> and(IQuery<T> queryB);
-            public IQuery<T> or(IQuery<T> queryB);
-            public IQuery<T> not();
+            this.queryA = queryA;
+            this.queryB = queryB;
         }
-        abstract class AQuery<T> : IQuery<T> where T : IQueriable
+    }
+
+    sealed class AndQuery<T> : AComboQuery<T> where T : IQueriable
+    {
+
+        public override bool query(T queriable)
         {
-            public abstract bool query(T queriable);
-
-            public IQuery<T> and(IQuery<T> queryB)
-            {
-                return new AndQuery<T>(this, queryB);
-            }
-
-            public IQuery<T> or(IQuery<T> queryB)
-            {
-                return new OrQuery<T>(this, queryB);
-            }
-
-            public IQuery<T> not()
-            {
-                return new NotQuery<T>(this);
-            }
+            return queryA.query(queriable) && queryB.query(queriable);
         }
 
-        abstract class AComboQuery<T> : AQuery<T> where T : IQueriable
+        public AndQuery(IQuery<T> queryA, IQuery<T> queryB) : base(queryA, queryB)
+        {}
+    }
+
+    sealed class OrQuery<T> : AComboQuery<T> where T : IQueriable
+    {
+        public override bool query(T queriable)
         {
-            protected IQuery<T> queryA;
-            protected IQuery<T> queryB;
-            
-            public AComboQuery(IQuery<T> queryA, IQuery<T> queryB)
-            {
-                this.queryA = queryA;
-                this.queryB = queryB;
-            }
+            return queryA.query(queriable) || queryB.query(queriable);
         }
 
-        sealed class AndQuery<T> : AComboQuery<T> where T : IQueriable
+        public OrQuery(IQuery<T> queryA, IQuery<T> queryB) : base(queryA, queryB)
+        {}
+    }
+
+    sealed class NotQuery<T> : AQuery<T> where T: IQueriable
+    {
+        private IQuery<T> negatedQuery;
+
+        public override bool query(T queriable)
         {
-
-            public override bool query(T queriable)
-            {
-                return queryA.query(queriable) && queryB.query(queriable);
-            }
-
-            public AndQuery(IQuery<T> queryA, IQuery<T> queryB) : base(queryA, queryB)
-            {}
+            return !negatedQuery.query(queriable);
         }
 
-        sealed class OrQuery<T> : AComboQuery<T> where T : IQueriable
+        public NotQuery (IQuery<T> negatedQuery)
         {
-            public override bool query(T queriable)
-            {
-                return queryA.query(queriable) || queryB.query(queriable);
-            }
+            this.negatedQuery = negatedQuery;
+        }
+    }
 
-            public OrQuery(IQuery<T> queryA, IQuery<T> queryB) : base(queryA, queryB)
-            {}
+    public abstract class BookQuery<T> : AQuery<Book>
+    {
+        protected T queryData;
+        public BookQuery(T queryData)
+        {
+            this.queryData = queryData;
+        }
+    }
+
+    public class AuthorQuery : BookQuery<string>
+    {
+        public override bool query(Book queriable)
+        {
+            return queriable.author == this.queryData;
         }
 
-        sealed class NotQuery<T> : AQuery<T> where T: IQueriable
+        public AuthorQuery(String queryString) : base(queryString) {}
+    }
+
+    public class PageCountQuery : BookQuery<uint>
+    {
+        public override bool query(Book queriable)
         {
-            private IQuery<T> negatedQuery;
-
-            public override bool query(T queriable)
-            {
-                return !negatedQuery.query(queriable);
-            }
-
-            public NotQuery (IQuery<T> negatedQuery)
-            {
-                this.negatedQuery = negatedQuery;
-            }
+            return queriable.pageCount == this.queryData;
         }
 
-        abstract class BookQuery<T> : AQuery<Book>
+        public PageCountQuery(uint queryNum) : base(queryNum) {}
+    }
+
+    public class TitleQuery : BookQuery<string>
+    {
+        public override bool query(Book queriable)
         {
-            protected T queryData;
-            public BookQuery(T queryData)
-            {
-                this.queryData = queryData;
-            }
+            return queriable.title == this.queryData;
         }
 
-        class AuthorQuery : BookQuery<string>
-        {
-            public override bool query(Book queriable)
-            {
-                return queriable.author == this.queryData;
-            }
+        public TitleQuery(String queryString) : base(queryString) {}
+    }
 
-            public AuthorQuery(String queryString) : base(queryString) {}
+    public class GenreQuery : BookQuery<string[]>
+    {
+        public override bool query(Book queriable)
+        {
+            return queriable.genre.SequenceEqual(this.queryData);
         }
 
-        class PageCountQuery : BookQuery<uint>
-        {
-            public override bool query(Book queriable)
-            {
-                return queriable.pageCount == this.queryData;
-            }
-
-            public PageCountQuery(uint queryNum) : base(queryNum) {}
-        }
-
-        class TitleQuery : BookQuery<string>
-        {
-            public override bool query(Book queriable)
-            {
-                return queriable.title == this.queryData;
-            }
-
-            public TitleQuery(String queryString) : base(queryString) {}
-        }
-
-        class GenreQuery : BookQuery<string[]>
-        {
-            public override bool query(Book queriable)
-            {
-                return queriable.genre.SequenceEqual(this.queryData);
-            }
-
-            public GenreQuery(String[] queryString) : base(queryString) {}
-        }
+        public GenreQuery(String[] queryString) : base(queryString) {}
     }
     public interface IQueriable
     {}
-    public struct Book : IQueriable
+    public struct Book : IQueriable, IEquatable<Book>
     {
         public String author;
         public String title;
@@ -184,11 +183,38 @@ namespace OO
 
         public override string ToString()
         {
-            return 
-                $"author: {author} \n" +
-                $"title: {title}\n" +
-                $"pageCount: {pageCount}\n" +
-                $"genre: {genre}";
+
+            // need to account for null values
+            return
+                $"\n" + 
+                $"author: {author ?? ""}\n" + 
+                $"title: {title ?? ""}\n" + 
+                $"pageCount: {pageCount}\n" + 
+                "genre: " + ((genre == null) ? "" : $"{String.Join(",", genre)}") + 
+                $"\n";
+        }
+
+        public bool Equals(Book book)
+        {
+            if (this.genre?.Length != book.genre?.Length) 
+                    return false;
+
+            if (this.genre != null && book.genre != null)
+            {
+                foreach (System.Tuple<String, String> s in this.genre.Zip(book.genre, Tuple.Create))
+                {
+                    if (s.Item1 != s.Item2)
+                        return false;
+                }
+            }
+
+            if (this.author != book.author
+                || this.pageCount != book.pageCount
+                || this.title != book.title
+            )
+                return false;
+
+            return true;
         }
     }
 }
