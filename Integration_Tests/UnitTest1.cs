@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using OO;
 
@@ -17,7 +18,7 @@ namespace Integration_Tests
         }
 
         [Test]
-        public void AuthorAnd10Or5()
+        public void HardCodedQuery1()
         {
             bookQuery = new AuthorQuery("ted").and(new PageCountQuery(10).or(new PageCountQuery(5)));
             
@@ -30,11 +31,16 @@ namespace Integration_Tests
                 actual[i] = bookQuery.query(testLibrary[i]);
             }
 
-            Assert.That(actual, Is.EqualTo(expected));
+            Assert.That(actual, Is.EqualTo(expected), 
+                $"\n" +
+                $"AuthorQuery: ted" + 
+                $"And:" +
+                $"  PageCountQuery: 10 or 5"
+                );
         }
 
         [Test]
-        public void SerializeDeserialize()
+        public void SerializeDeserializeEqual()
         {
             Book[] inputLibrary = new Book[] {
             new OO.Book {author = "ted", pageCount = 10},
@@ -59,7 +65,7 @@ namespace Integration_Tests
         }
 
         [Test]
-        public void SerializeDeserializeDifferent()
+        public void SerializeDeserializeInequal()
         {
             Book[] inputLibrary = new Book[] {
             new OO.Book {author = "ted", pageCount = 10},
@@ -80,6 +86,18 @@ namespace Integration_Tests
             Book[] Actual = JSON.BookReader.readList("hardcoded");
 
             Assert.That(Actual, Is.Not.EqualTo(UnExpected));
+        }
+
+        [Test]
+        public void SerializeDeserializeRuns()
+        {
+            Book[] inputLibrary = new Book[] {default(Book)};
+                
+            Assert.Multiple(() => 
+            {
+                Assert.DoesNotThrow(() => JSON.BookReader.serialize(inputLibrary, "hardcoded"));
+                Assert.DoesNotThrow(() => JSON.BookReader.readList("hardcoded"));
+            });
         }
     }
 }
